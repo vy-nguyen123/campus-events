@@ -1,8 +1,8 @@
 // `npm run seed`: wipes the database and fills it with demo data again.
-import { seedDemoData, sequelize } from './app.mjs';
+import { sequelize } from './db/connection.mjs';
+import { resetDatabase } from './db/initialize.mjs';
 
-await sequelize.sync({ force: true });
-await seedDemoData();
+await resetDatabase();
 
 console.log('Database reset with demo data.');
 await sequelize.close();
