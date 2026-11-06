@@ -87,6 +87,71 @@ and they must still pass after it, without changing them.
 
 Errors always have this shape: `{ "error": { "code", "message", "details?" } }`.
 
+### GET response caching
+
+The API uses a bounded in-memory response cache built with JavaScript's `Map`.
+Redis is available in Compose for later exercises, but no Redis client is installed.
+This implementation adds no dependencies and needs no external cache service;
+Redis downtime has no effect on it.
+
+| Cached GET endpoint | Response |
+|---|---|
+| `/api/events` | Events in their existing start-date order |
+| `/api/events/:id` | Event details, registration count and spots left |
+| `/api/events/:id/registrations` | Registrations in their existing creation order |
+| `/api/stats` | Occupancy and status per event |
+
+Health checks are never cached, so they still check the database every time.
+ID validation runs before cache lookup. Only successful HTTP 200 JSON responses
+are stored; validation errors, missing resources and server errors are not cached.
+HEAD requests bypass the cache. No new query filtering or sorting is introduced.
+Keys include the complete request URL, including query parameter values, repeated
+parameters and their order. Different query strings use different entries.
+
+Configure these optional settings in `api/.env`, then restart the API:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `CACHE_ENABLED` | `true` | Set to `false` to bypass response caching |
+| `CACHE_TTL_MS` | `30000` | Maximum entry lifetime in milliseconds |
+| `CACHE_MAX_ENTRIES` | `500` | Maximum number of cached responses |
+
+Invalid numeric settings fall back to their defaults. Entries expire on access,
+and the oldest inserted entry is evicted when the size limit is reached.
+Statistics expire earlier when an open event's start time passes, so the cached
+status can change to `past` without a database write. The existing precedence of
+`full` over `past` stays unchanged.
+
+For simplicity, every successful event POST, PATCH, DELETE or registration POST
+invalidates **all** cached GET responses, including query variants. Registration
+invalidation happens immediately after saving and before sending email. Rejected
+mutations leave the cache intact. Invalidation advances a generation number before
+clearing storage: old keys remain unusable if clearing fails, and reads already in
+progress cannot repopulate the new generation with older results. Cache read/write
+failures are logged and requests fall back to the database. A cache failure does
+not undo a successful mutation.
+
+To test locally, start the app normally; no Redis or Docker is needed. Request
+`GET /api/events` twice in the browser Network panel, then create or edit an event
+and request it again. The updated data should appear immediately. Register someone
+and check event details, registrations and statistics again; then delete the event
+and confirm its detail and registration endpoints return 404. To observe reuse,
+set a debugger breakpoint in `eventRepository.listEvents`: the second identical
+GET should skip it, while a different query string, mutation or expiry causes a
+database read. With `CACHE_ENABLED=false`, both requests reach the repository.
+`npm.cmd run check` includes automated tests for these cases plus cache failures,
+capacity eviction and overlapping reads/writes; existing email tests still run.
+
+This cache is intended for **one API process**. Restarting discards it. Multiple
+API processes do not share invalidation, and external database edits or running
+`npm run seed` in another process require restarting the API (or disabling caching)
+to guarantee immediate freshness. In-process database initialization/reset also
+invalidates entries. A request overlapping a write may return its earlier snapshot,
+but cannot cache that snapshot after the write. TTL limits the lifetime of data
+changed outside the API; it is not a substitute for shared invalidation. The size
+limit counts entries rather than bytes. There is no request coalescing on concurrent
+cache misses. A multi-instance deployment would need a shared invalidation strategy.
+
 ### Registration confirmation emails
 
 Email is disabled by default. The registration service first saves the registration,

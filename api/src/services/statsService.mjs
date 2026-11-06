@@ -4,6 +4,7 @@ import { listRegistrationsForStats } from '../repositories/registrationRepositor
 export async function getStats() {
   const events = await listEventsForStats();
   const result = [];
+  let expiresAt = Infinity;
   for (const event of events) {
     const registrations = await listRegistrationsForStats(event.id);
     let pct = 0;
@@ -16,6 +17,9 @@ export async function getStats() {
     } else if (new Date(event.startsAt) < new Date()) {
       status = 'past';
     }
+    if (status === 'open') {
+      expiresAt = Math.min(expiresAt, new Date(event.startsAt).getTime() + 1);
+    }
     result.push({
       id: event.id,
       title: event.title,
@@ -25,5 +29,5 @@ export async function getStats() {
       status: status
     });
   }
-  return result;
+  return { stats: result, expiresAt };
 }

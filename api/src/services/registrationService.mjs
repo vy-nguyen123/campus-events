@@ -3,6 +3,7 @@ import { requireEvent } from './eventService.mjs';
 import { AppError } from '../errors/AppError.mjs';
 import { logger } from '../config/logger.mjs';
 import { confirmationMailer } from '../mail/confirmationMailer.mjs';
+import { invalidateResponses } from '../cache/responseCache.mjs';
 
 export async function listRegistrations(id) {
   const event = await requireEvent(id);
@@ -24,6 +25,8 @@ export async function registerParticipant(id, data) {
   }
 
   const registration = await registrations.createRegistration({ eventId: event.id, name: data.name, email: data.email });
+  // Invalidate immediately after saving, before the potentially slow email attempt.
+  invalidateResponses();
   logger.info('new registration for ' + event.title + ': ' + data.name + ' <' + data.email + '>');
   // Persistence has succeeded. Email is best effort and must never change that result.
   try {
