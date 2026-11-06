@@ -44,7 +44,174 @@ Later parts need a few services. You never need them to run the tests.
 | `npm run seed` | Reset the database to the demo data |
 | `npm run build` | Production build of the frontend |
 
-## How it fits together
+## Deploy on Render: one public URL
+
+Recommended setup: **one paid Node Web Service with one persistent disk**.
+Express serves the Vue production build and `/api` from the same HTTPS address.
+The frontend already calls relative `/api` URLs, so no frontend changes, CORS
+configuration, Vite production proxy, or second Static Site are needed. Vite's
+proxy only applies to local development. Keep one API instance for SQLite and
+the in-memory cache. Redis and RabbitMQ are not required for this deployment.
+
+### Cost and storage
+
+As checked on 6 November 2026, budget approximately **US$7.25/month**: Starter
+compute is about $7/month and a 1 GB disk is $0.25/month, on the $0 Hobby workspace
+plan. Tax, bandwidth/build overages, a paid workspace, and an optional mail provider
+can add costs. Check the quoted total before creating anything.
+[Render pricing](https://render.com/pricing),
+[Starter compute comparison](https://render.com/articles/render-vs-railway).
+
+Attach a disk at `/var/data` and set `DB_STORAGE=/var/data/events.sqlite`.
+Both settings are essential: **setting a filename alone does not make it
+persistent**. The disk retains events and registrations through restarts and
+redeployments; files outside its mount remain ephemeral. A disk is attached to
+one instance and causes brief redeployment downtime. It is unavailable during
+build/pre-deploy commands, so initialize SQLite only at application startup.
+[Render persistent disk documentation](https://render.com/docs/disks).
+
+The Free instance cannot attach a persistent disk: its local SQLite data is lost
+on restart/redeploy/idle shutdown, and it sleeps after 15 minutes without traffic.
+It is unsuitable for retaining your teacher's registrations. Free instances also
+block common SMTP ports. A free frontend plus a backend does not solve database
+persistence; switching to external Postgres would require additional backend work.
+[Render Free limitations](https://render.com/docs/free).
+
+### Create the service manually
+
+These instructions describe actions **you perform when ready**; preparing the
+repository does not create a Render service. No service has been deployed for you.
+
+1. Review the local deployment changes and tests. When ready, commit and push them
+   yourself to `backend-improvements`. Render builds the remote repository, not
+   your uncommitted local files. This preparation does not commit or push anything.
+2. Sign in at https://dashboard.render.com. Use a **Hobby** workspace unless you
+   need paid workspace features. Paid service compute is separate from the
+   workspace plan. Add billing details if Render requests them.
+3. Click **New + → Web Service**. Connect GitLab (or your repository's Git provider),
+   authorize access to this repository, then select it and click **Connect**.
+   Choose a Git repository deployment, not an existing Docker image.
+4. Enter these service settings:
+
+   | Dashboard setting | Value |
+   |---|---|
+   | Name | `campus-events` (or another available name) |
+   | Language / Runtime | `Node` |
+   | Branch | `backend-improvements` |
+   | Region | `Frankfurt` (appropriate for Belgium) |
+   | Root Directory | **Leave blank**; commands need both npm workspaces |
+   | Build Command | `npm ci --include=dev && npm run build` |
+   | Start Command | `npm start` |
+   | Instance Type | `Starter` (paid), **one instance** |
+
+   The build explicitly installs development dependencies because Vite is needed
+   to build the frontend. `.node-version` selects Node 22; remove any conflicting
+   `NODE_VERSION` dashboard override, or set it to `22`. Do not use `vite preview`
+   or `npm run dev` as the production start command.
+   [Render Node version settings](https://render.com/docs/node-version).
+
+5. Under **Environment Variables**, enter the following (values without quotes):
+
+   | Name | Value |
+   |---|---|
+   | `NODE_ENV` | `production` |
+   | `SERVE_WEB` | `true` |
+   | `DB_STORAGE` | `/var/data/events.sqlite` |
+   | `CACHE_ENABLED` | `true` |
+   | `CACHE_TTL_MS` | `30000` |
+   | `CACHE_MAX_ENTRIES` | `500` |
+   | `MAIL_ENABLED` | `false` |
+   | `LOG_LEVEL` | `info` |
+
+   Leave `PORT` unset: Render provides it and Express binds on `0.0.0.0`.
+   Leave SMTP settings unset for the initial deployment. No `.env` file, database
+   file, or credentials should be committed or uploaded from your machine.
+
+6. Expand **Advanced**. Set **Health Check Path** to `/api/health`,
+   **Auto-Deploy** to **Off**, and leave **Pre-Deploy Command** empty.
+   The existing health endpoint is uncached and checks SQLite before returning
+   `200 {"status":"ok"}`; database failures return a non-success response.
+   [Render health checks](https://render.com/docs/health-checks).
+7. In **Advanced → Add Disk**, use name `campus-events-data`, mount path
+   `/var/data`, and size **1 GB**. Confirm the disk is listed before proceeding.
+   If your dashboard only offers disks after service creation, open the service's
+   **Disks → Add Disk** immediately, enter these settings, save, and wait for the
+   ensuing deployment **before creating any data you need to retain**.
+8. Review the billing estimate, then click **Deploy Web Service** when you choose
+   to start the paid deployment. Open **Events/Logs** and wait for **Live**.
+   The first empty database receives demo events; later starts synchronize tables
+   without resetting existing data. Never run `npm run seed` against this disk:
+   it intentionally deletes data. Do not put seeding in the build/start commands.
+9. Confirm **Settings** shows the commands and `/api/health`, **Environment** shows
+   the settings above, and **Disks** shows the 1 GB disk mounted at `/var/data`.
+   If scaling controls are shown, keep exactly one instance. Copy the public
+   `https://<your-service-name>.onrender.com` URL from the service header.
+
+The checked-in `render.yaml` is an optional reference/Blueprint alternative with
+the same paid configuration and automatic deploys disabled. The manual procedure
+above does not require creating a Blueprint. Do not create both for the same app,
+as that would create duplicate services and charges.
+
+### Verify and hand in
+
+1. Visit `<public-url>/api/health`: expect `{"status":"ok"}`. Visit `/api/events`:
+   expect JSON containing demo events on a fresh database.
+2. Open the public root URL. Check that events render, create a test event, and
+   register with a test name/email. In the browser's **Network** panel, confirm
+   registration POST returns `201` and requests use the same public host with
+   `/api/...` paths. Refresh: the registration and seat count must remain correct.
+3. Open `/events/<event-id>` and `/stats` directly, then refresh each page. They
+   should load the Vue interface. `/api/missing` must still return a JSON 404.
+4. To verify persistence, note the event ID and registration. Use Render's
+   **Manual Deploy → Deploy latest commit**, wait for **Live**, and check them
+   again. Also use **Manual Deploy → Restart service** if available. Data must
+   survive; the in-memory cache is allowed to empty. Do not use **Clear build
+   cache** as a substitute for attaching a disk.
+5. Share the public **root URL** with your teacher, keep the service/disk active
+   through grading, and check it in a private/incognito browser window.
+
+If the UI is missing, confirm `SERVE_WEB=true` and a successful `npm run build`.
+The server deliberately fails startup when serving the frontend is enabled but
+`web/dist/index.html` was not built. If SQLite cannot open, confirm the disk's
+mount and `DB_STORAGE` match. Never resolve a persistence problem by silently
+switching to a file outside the disk.
+
+### Optional email and operational limits
+
+Leave `MAIL_ENABLED=false` for a deployment that needs no mail account. To enable
+confirmation mail later, enter `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_TIMEOUT_MS` in Render's
+**Environment** page, then set `MAIL_ENABLED=true` and save/redeploy. Use your
+provider's supported port (typically 587/STARTTLS or 465/TLS, not blocked port 25).
+Do not deploy Mailpit or point SMTP at `localhost`: local Compose services are
+not running inside Render. Missing/invalid SMTP settings and provider failures
+are caught after saving, so registrations still return `201`. Mail remains
+best effort without retries.
+
+This is a classroom deployment, not a high-availability setup: one process,
+finite disk/RAM, brief deploy outages, and no shared cache. Keep consistent SQLite
+backups before important changes; persistent storage is not a substitute for a
+backup, and deleting the service/disk or running a reset can destroy data. The
+existing API has no authentication: anyone with the URL can use its mutation
+endpoints and registration lists, so use test data for grading. Authentication,
+rate limiting, database migration tooling, and managed Postgres are separate work.
+
+### Local production preview
+
+Run `npm.cmd run build` at the repository root. For PowerShell, run:
+
+```powershell
+$env:SERVE_WEB = 'true'
+npm.cmd start
+```
+
+Open http://localhost:3000 and http://localhost:3000/api/health. This uses the local
+SQLite defaults unless you set `DB_STORAGE`; it does not connect to Render. After
+stopping with Ctrl+C, run `Remove-Item Env:SERVE_WEB` before returning to normal
+Vite development. Run `npm.cmd run check` for lint and all tests; the new hosting
+tests use fixtures and in-memory SQLite, not your real database or SMTP provider.
+
+## Local project structure
 
 ```
 browser ──► web (Vite, :5173) ──/api/*──► api (Express, :3000) ──► SQLite (api/data/events.sqlite)

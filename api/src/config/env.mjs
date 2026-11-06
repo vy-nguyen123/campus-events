@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 if (process.env.NODE_ENV !== 'test') {
   try {
     process.loadEnvFile();
@@ -16,6 +18,10 @@ export const env = {
   logLevel: process.env.LOG_LEVEL || 'info',
   isTest: process.env.NODE_ENV === 'test',
   dbStorage: process.env.DB_STORAGE || './data/events.sqlite',
+  web: {
+    enabled: process.env.SERVE_WEB === 'true',
+    directory: fileURLToPath(new URL('../../../web/dist/', import.meta.url))
+  },
   cache: {
     enabled: process.env.CACHE_ENABLED !== 'false',
     ttlMs: positiveInteger(process.env.CACHE_TTL_MS, 30000),
