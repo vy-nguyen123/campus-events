@@ -87,6 +87,56 @@ and they must still pass after it, without changing them.
 
 Errors always have this shape: `{ "error": { "code", "message", "details?" } }`.
 
+### Registration confirmation emails
+
+Email is disabled by default. The registration service first saves the registration,
+then asks `api/src/mail/confirmationMailer.mjs` to send a plain-text confirmation
+using the existing Nodemailer dependency. Controllers and repositories do not send mail.
+SMTP configuration is read only in `api/src/config/env.mjs`.
+
+To test locally without sending messages to real inboxes:
+
+1. Run `docker compose up -d mailpit` from the repository root. This optional service
+   captures mail locally; no forwarding to an external mail server is configured.
+2. Copy `api/.env.example` to `api/.env` if needed. Set `MAIL_ENABLED=true`,
+   `MAIL_FROM=Campus Events <events@campus.example>`, `SMTP_HOST=localhost`,
+   `SMTP_PORT=1025`, and `SMTP_SECURE=false`. Leave `SMTP_USER` and
+   `SMTP_PASSWORD` empty. Keep `NODE_ENV=development`.
+3. Start or restart the API with `npm run dev -w api` from the root (or use
+   `npm run dev` for both the API and frontend). Register for an event.
+4. Open http://localhost:8025 to inspect the captured confirmation. The SMTP and
+   browser ports are bound to localhost only.
+5. Run `docker compose stop mailpit` and register a different email address.
+   Registration must still return HTTP `201`, appear in the registration list,
+   and update the seat count. The API logs a `Confirmation email failed` warning.
+
+For a hosted SMTP provider, configure its host, port, sender address and credentials
+in `api/.env`. Typically port 587 uses `SMTP_SECURE=false` with STARTTLS, while
+port 465 uses `SMTP_SECURE=true` for immediate TLS. Certificate validation stays
+enabled. Never commit credentials. Restart the API after changing settings.
+
+`SMTP_TIMEOUT_MS` defaults to 5000 milliseconds and configures DNS, connection,
+greeting and socket inactivity timeouts. It is not an overall request deadline.
+Mail configuration is validated only when sending is attempted, so invalid mail
+settings do not prevent API startup. If sending fails or SMTP is offline, the
+service catches the error and returns the saved registration with the same `201`
+response. The registration is never rolled back because of an email failure.
+Warnings include registration/event identifiers and an error code, without SMTP
+credentials or the email body.
+
+Delivery is best effort: failed messages are not retried, and a process crash
+between saving and sending can lose a confirmation. SMTP acceptance does not
+guarantee inbox delivery. A slow provider delays the response until sending finishes
+or a transport timeout occurs. RabbitMQ is not required for this implementation;
+the existing `api/lab/` scripts remain separate classroom exercises. Reliable
+eventual delivery would require a persistent outbox and retry worker.
+
+Run `npm.cmd run check` on Windows (or `npm run check` elsewhere). Tests always
+disable the configured SMTP mailer when `NODE_ENV=test`, even if `MAIL_ENABLED=true`
+or SMTP credentials are inherited. Additional HTTP integration tests use fake
+transports to verify sending after persistence, SMTP/configuration failures, and
+rejected registrations. No Mailpit, RabbitMQ, or real SMTP account is needed for tests.
+
 ### web/
 
 ```

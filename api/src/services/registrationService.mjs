@@ -2,6 +2,7 @@ import * as registrations from '../repositories/registrationRepository.mjs';
 import { requireEvent } from './eventService.mjs';
 import { AppError } from '../errors/AppError.mjs';
 import { logger } from '../config/logger.mjs';
+import { confirmationMailer } from '../mail/confirmationMailer.mjs';
 
 export async function listRegistrations(id) {
   const event = await requireEvent(id);
@@ -24,5 +25,15 @@ export async function registerParticipant(id, data) {
 
   const registration = await registrations.createRegistration({ eventId: event.id, name: data.name, email: data.email });
   logger.info('new registration for ' + event.title + ': ' + data.name + ' <' + data.email + '>');
+  // Persistence has succeeded. Email is best effort and must never change that result.
+  try {
+    await confirmationMailer.sendConfirmation(registration, event);
+  } catch (err) {
+    logger.warn('Confirmation email failed', {
+      registrationId: registration.id,
+      eventId: event.id,
+      code: err?.code || 'MAIL_ERROR'
+    });
+  }
   return registration;
 }
