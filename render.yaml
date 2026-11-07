@@ -1,27 +1,23 @@
-# Reference configuration. Creating this paid service/disk requires a manual action in Render.
+# Free school demo. SQLite data is lost on sleep, restart, or redeploy.
 services:
   - type: web
     name: campus-events
     runtime: node
     branch: backend-improvements
     region: frankfurt
-    plan: starter
+    plan: free
     numInstances: 1
     autoDeployTrigger: "off"
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
-    disk:
-      name: campus-events-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: SERVE_WEB
         value: "true"
       - key: DB_STORAGE
-        value: /var/data/events.sqlite
+        value: /tmp/campus-events.sqlite
       - key: CACHE_ENABLED
         value: "true"
       - key: CACHE_TTL_MS

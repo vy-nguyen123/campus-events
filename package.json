@@ -12,6 +12,7 @@
     "web"
   ],
   "scripts": {
+    "start": "npm start -w api",
     "dev": "concurrently --names api,web --prefix-colors blue,magenta \"npm run dev -w api\" \"npm run dev -w web\"",
     "seed": "npm run seed -w api",
     "test": "npm test --workspaces",
