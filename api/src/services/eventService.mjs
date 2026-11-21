@@ -2,6 +2,7 @@ import * as events from '../repositories/eventRepository.mjs';
 import { countRegistrations } from '../repositories/registrationRepository.mjs';
 import { AppError } from '../errors/AppError.mjs';
 import { invalidateResponses } from '../cache/responseCache.mjs';
+import { notificationHub } from '../notifications/notificationHub.mjs';
 
 function eventNotFound(id) {
   return new AppError(404, 'NOT_FOUND', `Event with id ${id} not found`);
@@ -26,6 +27,7 @@ export async function getEvent(id) {
 export async function createEvent(data) {
   const event = await events.createEvent(data);
   invalidateResponses();
+  notificationHub.publish('event.created', event.id);
   return event;
 }
 

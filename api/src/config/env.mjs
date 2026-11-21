@@ -18,6 +18,16 @@ export const env = {
   logLevel: process.env.LOG_LEVEL || 'info',
   isTest: process.env.NODE_ENV === 'test',
   dbStorage: process.env.DB_STORAGE || './data/events.sqlite',
+  mcp: {
+    token: process.env.MCP_TOKEN || '',
+    allowedHosts: (process.env.MCP_ALLOWED_HOSTS || 'localhost,127.0.0.1,[::1]').split(',').map((host) => host.trim()).filter(Boolean),
+    allowedOrigins: (process.env.MCP_ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173').split(',').map((origin) => origin.trim()).filter(Boolean),
+    requestsPerMinute: positiveInteger(process.env.MCP_REQUESTS_PER_MINUTE, 120)
+  },
+  notifications: {
+    maxClients: positiveInteger(process.env.SSE_MAX_CLIENTS, 100),
+    heartbeatMs: positiveInteger(process.env.SSE_HEARTBEAT_MS, 20000)
+  },
   web: {
     enabled: process.env.SERVE_WEB === 'true',
     directory: fileURLToPath(new URL('../../../web/dist/', import.meta.url))

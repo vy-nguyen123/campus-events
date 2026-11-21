@@ -5,7 +5,7 @@ export function requestLogger(req, res, next) {
   res.on('finish', () => {
     logger.info('request', {
       method: req.method,
-      url: req.originalUrl,
+      url: req.path === '/api/mcp' ? '/api/mcp' : req.originalUrl,
       status: res.statusCode,
       durationMs: Math.round(performance.now() - start)
     });

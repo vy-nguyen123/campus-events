@@ -11,6 +11,12 @@ It works out of the box, and it has tests. It is also the kind of code you will 
 the whole API is one long file. Your job is to **clean it up, ship it to production, fix it and add the hard
 parts**
 
+## Assignment 2: MCP and live notifications
+
+See [the Assignment 2 guide](docs/assignment-2.md) for architecture, local setup,
+connecting an actual AI assistant with authentication and tool approval, automated
+tests, the multiple-window demonstration, and Render Free limitations.
+
 ## Quick start
 
 You need **Node.js 22.12 or newer** (`node -v`) and Git.

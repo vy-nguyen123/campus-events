@@ -1,5 +1,9 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router';
+import ToastNotification from './components/ToastNotification.vue';
+import { useNotifications } from './composables/useNotifications.js';
+
+const { toasts, dismiss } = useNotifications();
 </script>
 
 <template>
@@ -14,4 +18,5 @@ import { RouterLink, RouterView } from 'vue-router';
   <main class="page">
     <RouterView />
   </main>
+  <ToastNotification :toasts="toasts" @dismiss="dismiss" />
 </template>

@@ -28,3 +28,11 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: info
+      # Configure these privately when creating the Blueprint. Existing manual
+      # services must add them in the dashboard; this file does not deploy changes.
+      - key: MCP_TOKEN
+        sync: false
+      - key: MCP_ALLOWED_HOSTS
+        sync: false
+      - key: MCP_ALLOWED_ORIGINS
+        sync: false

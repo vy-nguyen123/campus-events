@@ -3,6 +3,8 @@ import * as events from '../controllers/eventController.mjs';
 import * as registrations from '../controllers/registrationController.mjs';
 import { health } from '../controllers/healthController.mjs';
 import { stats } from '../controllers/statsController.mjs';
+import { mcp } from '../controllers/mcpController.mjs';
+import { notifications } from '../controllers/notificationController.mjs';
 import { validate } from '../middleware/validate.mjs';
 import { cacheResponse } from '../middleware/cacheResponse.mjs';
 import { idSchema, createEventSchema, updateEventSchema, registrationSchema } from './schemas.mjs';
@@ -10,6 +12,8 @@ import { idSchema, createEventSchema, updateEventSchema, registrationSchema } fr
 export const router = Router();
 
 router.get('/api/health', health);
+router.all('/api/mcp', mcp);
+router.get('/api/notifications', notifications);
 router.get('/api/events', cacheResponse, events.listEvents);
 router.get('/api/events/:id', validate('params', idSchema), cacheResponse, events.getEvent);
 router.post('/api/events', validate('body', createEventSchema), events.createEvent);

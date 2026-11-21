@@ -9,6 +9,8 @@
   --accent-ink: #ffffff;
   --open: #127a55;
   --full: #c62f38;
+  --toast-background: #163b2d;
+  --toast-text: #ffffff;
 
   --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
@@ -168,4 +170,38 @@ a { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .ticket { transition: none; }
   .ticket:hover { transform: none; }
+}
+.toast-region {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  display: grid;
+  gap: 0.75rem;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: var(--toast-background);
+  color: var(--toast-text);
+  box-shadow: 0 4px 16px #0003;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
 }
